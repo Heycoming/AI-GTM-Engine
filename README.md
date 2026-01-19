@@ -1,32 +1,41 @@
-# AI GTM Engine
+# Influencer GTM Automation Pipeline
 
-**Automated Talent Intelligence & ETL Pipeline**
+**End-to-End Instagram Talent Discovery & Outreach System**
 
-The AI GTM Engine is a specialized automation system designed to streamline the discovery and management of influencer talent. By orchestrating a seamless ETL (Extract, Transform, Load) workflow, this tool converts unstructured data from **Wotohub** into actionable insights within **Airtable**, serving as a foundational component for data-driven Go-To-Market (GTM) strategies.
+This repository houses a specialized **Go-To-Market (GTM) engine** designed to automate the labor-intensive process of influencer marketing. Developed to support brand product launches, this pipeline replaces manual scouting with a programmatic approach to discover, classify, and engage high-potential Instagram creators.
 
-This project demonstrates a systems-oriented approach to solving manual data bottlenecks, leveraging browser automation and API integrations to build a scalable Talent Intelligence database.
+## Project Background
+
+In the context of scaling a brand's product promotion, manual influencer sourcing is often the primary bottleneck. Marketing teams spend countless hours manually searching platforms, verifying engagement metrics, copying data to spreadsheets, and drafting individual outreach emails.
+
+**The Solution:**
+I engineered this automated pipeline to transform a fragmented manual workflow into a streamlined system. By inputting target keywords (e.g., "skincare," "tech setup"), the system autonomously:
+1.  **Scouts** thousands of profiles via Wotohub.
+2.  **Qualifies** leads based on engagement rates and follower counts.
+3.  **Organizes** data into a structured CRM (Airtable).
+4.  **Prepares** personalized email drafts, readying the campaign for immediate execution.
 
 ## Key Features
 
-*   **Wotohub Automation:** Implements a custom **Playwright** engine to navigate Wotohub, handling authentication, pagination, and dynamic content rendering to extract high-value influencer metrics.
-*   **Stealth Extraction:** Utilizes advanced network interception techniques to capture raw JSON payloads directly from the source, bypassing complex frontend anti-bot protections and signature verifications.
-*   **Data Engineering:** Features a robust processing layer using **Pandas** to clean, normalize, and score leads based on engagement rates and follower counts, ensuring only quality data enters the CRM.
-*   **CRM Integration:** Synchronizes processed data with **Airtable** via API. The system employs an idempotent design to prevent duplicate records while updating existing profiles with fresh metrics.
-*   **Modular Backend Architecture:** Built with a decoupled design pattern (Extraction, Processing, Loading), allowing for easy integration of additional data sources or AI enrichment modules (e.g., GPT-4 analysis).
+*   **Automated Discovery:** Implements a custom **Playwright** engine to navigate Wotohub, handling authentication, pagination, and dynamic content rendering to extract high-value influencer metrics.
+*   **Smart Filtration & Classification:** Uses **Pandas** to process raw data, filtering out low-quality leads (e.g., bot accounts, low engagement) and categorizing influencers by region and niche.
+*   **Outreach Readiness:** Automatically generates personalized email drafts and outreach metadata for each qualified lead, significantly reducing the time-to-contact for marketing teams.
+*   **CRM Synchronization:** Synchronizes processed data with **Airtable** via API. The system employs an idempotent design to prevent duplicate records, serving as a "Single Source of Truth" for the GTM team.
+*   **Stealth Extraction:** Utilizes advanced network interception techniques to capture raw JSON payloads, bypassing complex frontend anti-bot protections.
 
 ## Technical Architecture
 
 ### Core Runtime
 *   **Python 3.10+**: Primary backend logic.
-*   **ETL Design Pattern**: Strict separation of concerns between the Scraper (Extract), Processor (Transform), and Syncer (Load).
+*   **ETL Design Pattern**: Strict separation of concerns between Extraction (Scraper), Transformation (Processor), and Loading (Airtable Sync).
 
 ### Extraction Layer
-*   **Playwright**: Enterprise-grade browser automation used for rendering JavaScript-heavy interfaces on Wotohub.
+*   **Playwright**: Enterprise-grade browser automation used for rendering JavaScript-heavy interfaces.
 *   **Network Interception**: Direct capture of XHR/Fetch responses to retrieve clean data structures rather than parsing unstable HTML DOM elements.
 
 ### Data Processing Layer
 *   **Pandas**: High-performance data manipulation.
-*   **Normalization Logic**: Custom algorithms to standardize numerical formats (e.g., converting "10k" to 10000) and calculate engagement ratios.
+*   **Metric Normalization**: Custom logic to standardize numerical formats and calculate engagement ratios to score lead quality.
 
 ### Integration Layer
 *   **PyAirtable**: Robust client for the Airtable REST API.
@@ -39,7 +48,7 @@ AI-GTM-ENGINE/
 ├── src/                     # Source Code Package
 │   ├── __init__.py          # Package initialization
 │   ├── scraper.py           # Playwright extraction logic (Wotohub)
-│   ├── processor.py         # Data transformation & cleaning
+│   ├── processor.py         # Data cleaning, filtering & email drafting
 │   ├── airtable_sync.py     # Airtable API integration
 │   └── config.py            # Configuration loader
 ├── main.py                  # Application entry point
@@ -75,7 +84,7 @@ AI-GTM-ENGINE/
     ```
 
 4.  **Configuration**
-    Refer to the `.env.example` file for the required configuration keys. Create a `.env` file in the root directory and populate it with your credentials:
+    Refer to the `.env.example` file. Create a `.env` file in the root directory and populate it with your credentials:
     ```bash
     cp .env.example .env
     # Edit .env with your Airtable API Key, Base ID, and Table Name
@@ -83,7 +92,7 @@ AI-GTM-ENGINE/
 
 ## Usage
 
-To initiate the pipeline, execute the main entry script. The system operates in a semi-automated mode to ensure secure authentication with Wotohub.
+To initiate the pipeline, execute the main entry script. The system operates in a semi-automated mode to ensure secure authentication.
 
 ```bash
 python main.py
@@ -91,11 +100,13 @@ python main.py
 
 **Operational Workflow:**
 
-1.  **Authentication:** A browser instance launches automatically. Log in to Wotohub manually to establish a secure session.
+1.  **Authentication:** A browser instance launches automatically. Log in to the target platform manually to establish a secure session.
 2.  **Handshake:** Once the login is successful, press `Enter` in the terminal. This signal triggers the automation engine to take over.
-3.  **Extraction:** The engine navigates to the search module, executes queries, and intercepts data streams.
-4.  **Transformation & Load:** Data is processed in memory and immediately synchronized to the defined Airtable base.
+3.  **Extraction:** The engine navigates to the search module, executes queries based on brand requirements, and intercepts data streams.
+4.  **Transformation & Load:** Data is processed, email drafts are generated, and the final dataset is pushed to Airtable.
 
 ## License
 
 MIT License
+
+> **Note:** This project serves as a technical portfolio demonstrating the automation and backend architecture designed during my **Data Operations & Database Internship**. The code has been sanitized for educational purposes and contains **no proprietary business data, sensitive internal information, or live credentials**.
