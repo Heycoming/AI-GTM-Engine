@@ -1,64 +1,66 @@
-import pandas as pd
-from .config import Config
+import os
+import json
+from openai import OpenAI
+from dotenv import load_dotenv
 
-class DataProcessor:
-    def process(self, data_list: list) -> pd.DataFrame:
-        """
-        Enriches raw data with 'Status' and 'Email Draft'.
-        """
-        df = pd.DataFrame(data_list)
-        
-        # Apply Logic
-        df['Status'] = df.apply(self._classify_tier, axis=1)
-        df['Email Draft'] = df.apply(self._generate_email, axis=1)
-        
-        # Rename columns to match Airtable Schema exactly
-        df = df.rename(columns={
-            "name": "Influencer Name",
-            "followers": "Followers",
-            "engagement_rate": "Engagement Rate",
-            "region": "Region",
-            "profile_link": "Profile URL"
-        })
-        
-        return df
+load_dotenv()
 
-    def _classify_tier(self, row):
-        """
-        Segmentation Strategy:
-        - VIP: High Engagement (>5%) + High Reach (>50k) -> Full Bottle
-        - Seed: Good Engagement (>2%) -> Sample
-        """
-        eng = row.get('engagement_rate', 0)
-        followers = row.get('followers', 0)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        if eng >= Config.VIP_THRESHOLD['engagement'] and followers >= Config.VIP_THRESHOLD['followers']:
-            return "VIP_Full_Bottle"
-        elif eng >= Config.SEED_THRESHOLD['engagement']:
-            return "Seed_Sample"
-        else:
-            return "Discard"
+def process_influencer_with_gpt(raw_data):
+    try:
+        influencer_summary = {
+            "name": raw_data.get('nickName', 'Unknown'),
+            "description": raw_data.get('description', ''),
+            "stats": {
+                "subscribers": raw_data.get('fanNum', 0),
+                "avg_views": raw_data.get('avgViewNum', 0),
+                "engagement": raw_data.get('interactiveRate', 0)
+            },
+            "country": raw_data.get('countryName', 'Unknown')
+        }
 
-    def _generate_email(self, row):
-        """Generates a Professional outreach email based on tier."""
-        name = row['name']
+        prompt = f"""
+        You are a professional Influencer Marketing Manager for a high-end Perfume brand.
+        Analyze the following influencer data:
+        {json.dumps(influencer_summary)}
+
+        Task:
+        1. Extract/Confirm their Name.
+        2. Calculate Engagement Rate (format as percentage).
+        3. Write a SHORT, hyper-personalized outreach email (max 100 words). 
+           - Mention specific details from their description or stats to prove you looked at them.
+           - Tone: Professional, warm, exclusive.
         
-        if row['Status'] == "VIP_Full_Bottle":
-            return (
-                f"Subject: Exclusive Partnership Opportunity: [Brand] x {name}\n\n"
-                f"Dear {name},\n\n"
-                "I hope this email finds you well. We have been following your content regarding luxury fragrances "
-                "and admire your sophisticated analysis.\n\n"
-                "We would be honored to send you our full-size signature collection for your review. "
-                "Please let us know if you are interested in a potential collaboration.\n\n"
-                "Best,\n[Your Name]"
-            )
-        elif row['Status'] == "Seed_Sample":
-            return (
-                f"Subject: Discovery Set for {name}\n\n"
-                f"Dear {name},\n\n"
-                "We loved your recent video! We believe our new scent profile aligns perfectly with your taste. "
-                "We'd love to send you a complimentary discovery set—no strings attached.\n\n"
-                "Best,\n[Your Name]"
-            )
-        return "N/A"
+        Output format: JSON only.
+        {{
+            "name": "...",
+            "engagement_rate": "...",
+            "email_draft": "..."
+        }}
+        """
+
+        # 3. 调用 GPT-4o
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a data extraction and copywriting assistant. Output valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        
+        return {
+            "Name": result.get("name"),
+            "Platform": "YouTube",
+            "Followers": int(influencer_summary['stats']['subscribers']),
+            "Engagement Rate": result.get("engagement_rate"),
+            "Email Draft": result.get("email_draft"),
+            "Status": "To Contact"
+        }
+
+    except Exception as e:
+        print(f"❌ GPT Processing Error: {e}")
+        return None

@@ -1,73 +1,79 @@
-import requests
-from bs4 import BeautifulSoup
-import re
-from .config import Config
+from playwright.sync_api import sync_playwright
+import time
+import json
 
-class WotoScraper:
-    def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(Config.HEADERS)
+def fetch_influencers(keyword="perfume", max_count=2000):
+    collected_data = []
+    
+    print(f" Initiating the browser... (Target: {max_count} people)")
+    
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
 
-    def fetch_profile(self, html_content: str = None) -> dict:
-        """
-        Parses influencer data. 
-        Args:
-            html_content: Raw HTML string. In production, this would be fetched via requests.get().
-        """
-        if not html_content:
-            # Fallback for demo if no HTML provided (simulating a fetch)
-            return {}
+        print("Opening Wotohub, please prepare to log in...")
+        page.goto("https://www.wotohub.com/login")
 
-        soup = BeautifulSoup(html_content, 'html.parser')
-        data = {}
+        print("\n" + "="*50)
+        print("Please manually log in to Wotohub in the opened browser!")
+        print("After successful login and seeing the homepage, please come back here and press [Enter] to continue...")
+        print("="*50 + "\n")
+        input("Finished logging in? Press Enter to continue the program -> ")
+
+        def handle_response(response):
+            if "dataService/home/search" in response.url and response.status == 200:
+                try:
+                    json_data = response.json()
+                    if "data" in json_data and "list" in json_data["data"]:
+                        new_items = json_data["data"]["list"]
+                        collected_data.extend(new_items)
+                        print(f"   Captured data packet: Added {len(new_items)} people | Total: {len(collected_data)}")
+                except:
+                    pass
+
+        page.on("response", handle_response)
+
+        print(f"Searching keyword: {keyword}...")
+        page.goto("https://www.wotohub.com/workbenchSearch")
+        page.wait_for_timeout(3000)
 
         try:
-            # 1. Basic Info
-            # Selector based on provided HTML: .blo_name_text
-            name_tag = soup.find("span", class_="blo_name_text")
-            data["name"] = name_tag.text.strip() if name_tag else "Unknown"
-
-            # Extract Channel ID to build a URL
-            id_tag = soup.find("span", class_="channel_id")
-            channel_id = id_tag.text.replace("（频道ID：", "").replace("）", "") if id_tag else ""
-            data["profile_link"] = f"https://www.youtube.com/@{channel_id}"
-
-            # 2. Region (Next to the flag image)
-            # Finding the span that contains the region text (e.g., "巴西")
-            region_img = soup.find("div", class_="blo_name_box").find("img")
-            if region_img:
-                data["region"] = region_img.parent.find_next_sibling("span").text.strip()
-            else:
-                data["region"] = "Global"
-
-            # 3. Metrics (Fans, Views, Engagement)
-            # The HTML uses 'fans_box' for all three metrics. We iterate to find them.
-            stats_boxes = soup.find_all("div", class_="fans_box")
+            page.fill("input[placeholder*='Search']", keyword) 
+            page.press("input[placeholder*='Search']", "Enter")
+        except:
+            print("Automatic input failed, please manually enter the keyword in the browser and press Enter!")
+            print("   (The program will automatically listen to the data, you just need to turn the page)")
+        
+        print("Starting automatic pagination...")
+        page_num = 1
+        
+        while len(collected_data) < max_count:
+            if len(collected_data) >= max_count:
+                break
             
-            for box in stats_boxes:
-                label = box.find("span", class_="fans_text").text.strip()
-                value_str = box.find("span").text.strip() # The number is in the first span
-                
-                if "粉丝数" in label:
-                    data["followers"] = self._parse_metric(value_str)
-                elif "平均观看量" in label:
-                    data["avg_views"] = self._parse_metric(value_str)
-                elif "平均互动率" in label:
-                    data["engagement_rate"] = self._parse_percentage(value_str)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(2)
 
-        except Exception as e:
-            print(f"⚠️ Parsing Error: {e}")
-            return None
+            current_count = len(collected_data)
+            
+            try:
+                next_btn = page.query_selector(".btn-next, .el-pagination__next") 
+                if next_btn:
+                    next_btn.click()
+                else:
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            except:
+                pass
 
-        return data
+            time.sleep(3)
+            
+            if len(collected_data) == current_count:
+                print("Data did not increase, try scrolling again or manually click the next page...")
+            
+            page_num += 1
 
-    def _parse_metric(self, value: str) -> int:
-        """Handles '10.10万' (Chinese notation) or '1.5M' conversions."""
-        value = value.replace(",", "")
-        if "万" in value:
-            return int(float(value.replace("万", "")) * 10000)
-        return int(float(value))
+        print(f"Fetching completed! Total {len(collected_data)} records obtained.")
+        browser.close()
 
-    def _parse_percentage(self, value: str) -> float:
-        """Converts '14.41%' to 0.1441"""
-        return float(value.replace("%", "")) / 100
+    return collected_data[:max_count]
